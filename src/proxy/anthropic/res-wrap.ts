@@ -7,7 +7,11 @@
  * 按最终形态修正 content-type 与 content-length.
  */
 
-import { createAnthropicSseState, openAIToAnthropicJson } from './response.ts'
+import {
+  createAnthropicSseState,
+  openAISseToAnthropicJson,
+  openAIToAnthropicJson,
+} from './response.ts'
 
 /** HTTP 状态码 -> Anthropic 错误类型的映射. */
 const ERROR_TYPE: Record<number, string> = {
@@ -36,6 +40,8 @@ class AnthropicReply {
   state: ReturnType<typeof createAnthropicSseState> | null
   /** 流式行缓冲(分片边界可能打在行中间). */
   lineBuf = ''
+  /** 分块 UTF-8 解码器. */
+  decoder = new TextDecoder()
 
   /**
    * @param {any} target 底层 ServerResponse
@@ -78,7 +84,9 @@ class AnthropicReply {
    * @returns {boolean} 底层 write 的背压返回值
    */
   write(chunk: any): boolean {
-    const text = typeof chunk === 'string' ? chunk : Buffer.from(chunk).toString('utf8')
+    const text = typeof chunk === 'string'
+      ? this.decoder.decode() + chunk
+      : this.decoder.decode(Buffer.from(chunk), { stream: true })
     if (this.status >= 400 || !this.meta.stream) {
       this.buffered.push(text)
       return true
@@ -102,6 +110,9 @@ class AnthropicReply {
    */
   end(chunk?: any): void {
     if (chunk !== undefined && chunk !== null) this.write(chunk)
+    const tail = this.decoder.decode()
+    if (this.status >= 400 || !this.meta.stream) this.buffered.push(tail)
+    else this.lineBuf += tail
     if (this.status >= 400) {
       this.writeBufferedEnd(errorEnvelope(this.buffered.join(''), this.status))
       return
@@ -183,6 +194,10 @@ export function createAnthropicReply(target: any, meta: { stream: boolean, model
  * @returns {any} Anthropic message 对象(转换失败时为原文)
  */
 function safeConvert(text: string, model: string): any {
+  if (text.includes('data: ')) {
+    const converted = openAISseToAnthropicJson(text, model)
+    if (converted) return converted
+  }
   try {
     const obj = text ? JSON.parse(text) : {}
     return openAIToAnthropicJson(obj, model)

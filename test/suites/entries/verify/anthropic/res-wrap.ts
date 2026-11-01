@@ -84,7 +84,52 @@ function fakeTarget() {
   check('content-length 已修正', len === String(Buffer.byteLength(out)))
 }
 
-// 3) 错误: OpenAI 错误信封转 Anthropic 错误信封
+// 3) 非流式下游遇到上游 SSE: 聚合后仍应返回 Anthropic JSON
+{
+  const target = fakeTarget()
+  const res = createAnthropicReply(target, { stream: false, model: 'claude-haiku-5' })
+  res.writeHead(200, { 'content-type': 'text/event-stream' })
+  res.write('data: ' + JSON.stringify({
+    id: 'c-sse', model: 'mimo/mimo-v2.5',
+    choices: [{ delta: { content: 'OK' }, finish_reason: null }],
+  }) + '\n\n')
+  res.write('data: ' + JSON.stringify({
+    id: 'c-sse', model: 'mimo/mimo-v2.5',
+    choices: [{ delta: {}, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 7, completion_tokens: 2 },
+  }) + '\n\n')
+  res.write('data: [DONE]\n\n')
+  res.end()
+  const body = target.body.join('')
+  const obj = JSON.parse(body)
+  check(
+    '上游 SSE 聚合成 Anthropic JSON',
+    obj.type === 'message' && obj.model === 'claude-haiku-5' && obj.content[0]?.text === 'OK',
+  )
+  check('聚合保留 usage 与 stop_reason', obj.usage?.input_tokens === 7 && obj.stop_reason === 'end_turn')
+  check('响应不再泄漏上游 SSE', !body.includes('data:'))
+}
+
+// 4) 非流式上游 UTF-8 字符跨 Buffer 分块时保持完整
+{
+  const target = fakeTarget()
+  const res = createAnthropicReply(target, { stream: false, model: 'claude-haiku-5-5' })
+  const sse = Buffer.from(
+    'data: ' + JSON.stringify({ choices: [{ delta: { content: '汉字' } }] }) + '\n\n'
+      + 'data: ' + JSON.stringify({ choices: [{ delta: {}, finish_reason: 'stop' }] }) + '\n\n'
+      + 'data: [DONE]\n\n',
+  )
+  const splitAt = sse.indexOf(Buffer.from('汉')) + 1
+  res.writeHead(200, { 'content-type': 'text/event-stream' })
+  res.write(sse.subarray(0, splitAt))
+  res.write(sse.subarray(splitAt))
+  res.end()
+  const body = target.body.join('')
+  const obj = JSON.parse(body)
+  check('跨 Buffer 分块的 UTF-8 文本保持完整', obj.content[0]?.text === '汉字')
+}
+
+// 5) 错误: OpenAI 错误信封转 Anthropic 错误信封
 {
   const target = fakeTarget()
   const res = createAnthropicReply(target, { stream: false, model: 'm' })

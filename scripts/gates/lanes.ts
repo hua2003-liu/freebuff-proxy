@@ -47,6 +47,7 @@ export const LANES = {
       '.dockerignore',
       '.gitignore',
       '.env.example',
+      '.gitattributes',
       'config.yaml',
       'config.example.yaml',
     ],

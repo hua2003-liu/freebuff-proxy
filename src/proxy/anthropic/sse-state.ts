@@ -22,7 +22,7 @@ interface SseCtx {
   textIdx: number
   chars: number
   stopReason: string
-  tools: Map<number, { outIdx: number, open: boolean }>
+  tools: Map<number, { outIdx: number, open: boolean, announced: boolean, id: string, name: string }>
 }
 
 /**
@@ -123,27 +123,67 @@ function onText(ctx: SseCtx, text: string): void {
  */
 function onToolCall(ctx: SseCtx, tc: any): void {
   ensureStart(ctx)
-  const idx = Number(tc?.index) || 0
-  let entry = ctx.tools.get(idx)
-  if (!entry) {
-    closeTextIfOpen(ctx)
-    entry = { outIdx: ctx.nextIdx++, open: true }
-    ctx.tools.set(idx, entry)
-    emitEvent(ctx, 'content_block_start', {
-      type: 'content_block_start',
-      index: entry.outIdx,
-      content_block: { type: 'tool_use', id: tc?.id || 'toolu_unknown', name: tc?.function?.name || '' },
-    })
-  }
+  const entry = getToolEntry(ctx, tc)
+  if (typeof tc?.id === 'string') entry.id += tc.id
+  if (typeof tc?.function?.name === 'string') entry.name += tc.function.name
   const args = tc?.function?.arguments
   if (typeof args === 'string' && args) {
-    ctx.chars += args.length
-    emitEvent(ctx, 'content_block_delta', {
-      type: 'content_block_delta',
-      index: entry.outIdx,
-      delta: { type: 'input_json_delta', partial_json: args },
-    })
+    startToolBlock(ctx, entry)
+    emitToolArguments(ctx, entry, args)
   }
+}
+
+/**
+ * 获取或创建工具调用状态.
+ *
+ * @param {SseCtx} ctx 状态机上下文
+ * @param {any} tc OpenAI tool_call 增量条目
+ * @returns {NonNullable<ReturnType<SseCtx['tools']['get']>>} 工具调用状态
+ */
+function getToolEntry(ctx: SseCtx, tc: any) {
+  const idx = Number(tc?.index) || 0
+  let entry = ctx.tools.get(idx)
+  if (entry) return entry
+  closeTextIfOpen(ctx)
+  entry = { outIdx: ctx.nextIdx++, open: true, announced: false, id: '', name: '' }
+  ctx.tools.set(idx, entry)
+  return entry
+}
+
+/**
+ * 发出完整名称的 tool_use 块开始事件.
+ *
+ * @param {SseCtx} ctx 状态机上下文
+ * @param {NonNullable<ReturnType<SseCtx['tools']['get']>>} entry 工具调用状态
+ * @returns {void} 无返回
+ */
+function startToolBlock(ctx: SseCtx, entry: any): void {
+  if (entry.announced) return
+  entry.announced = true
+  emitEvent(ctx, 'content_block_start', {
+    type: 'content_block_start',
+    index: entry.outIdx,
+    content_block: {
+      type: 'tool_use', id: entry.id || 'toolu_unknown', name: entry.name,
+    },
+  })
+}
+
+/**
+ * 发出工具参数 JSON 增量.
+ *
+ * @param {SseCtx} ctx 状态机上下文
+ * @param {any} entry 工具调用状态
+ * @param {string} args 参数 JSON 增量
+ * @returns {void} 无返回
+ */
+function emitToolArguments(ctx: SseCtx, entry: any, args: string): void {
+  ctx.chars += args.length
+  emitEvent(ctx, 'content_block_delta', {
+    type: 'content_block_delta',
+    index: entry.outIdx,
+    delta: { type: 'input_json_delta', partial_json: args },
+  })
 }
 
 /**
@@ -185,6 +225,7 @@ function finishStream(ctx: SseCtx): string[] {
   ensureStart(ctx)
   closeTextIfOpen(ctx)
   for (const entry of ctx.tools.values()) {
+    startToolBlock(ctx, entry)
     if (entry.open) {
       entry.open = false
       emitEvent(ctx, 'content_block_stop', { type: 'content_block_stop', index: entry.outIdx })

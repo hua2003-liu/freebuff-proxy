@@ -118,4 +118,17 @@ const messages = (body: any, stream = false) =>
   assert.ok(Number.isInteger(j.input_tokens) && j.input_tokens >= 1)
 }
 
+// 无效 x-api-key 使用 Anthropic authentication_error 信封
+{
+  const res = await fetch(`${base}/v1/messages/count_tokens`, {
+    method: 'POST',
+    headers: { 'x-api-key': 'wrong-key', 'content-type': 'application/json' },
+    body: JSON.stringify({ model: MODEL, messages: [] }),
+  })
+  assert.equal(res.status, 401)
+  const j = await res.json()
+  assert.equal(j.type, 'error')
+  assert.equal(j.error?.type, 'authentication_error')
+}
+
 state.mockMode = 'ok'

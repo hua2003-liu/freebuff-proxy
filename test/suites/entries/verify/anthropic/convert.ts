@@ -166,6 +166,33 @@ function check(name, cond, detail = '') {
   )
 }
 
+// 11) tool_choice 的禁用工具与禁并行语义
+{
+  const none = anthropicToOpenAI({
+    model: 'm', max_tokens: 1, messages: [],
+    tools: [{ name: 'read', input_schema: { type: 'object', properties: {} } }],
+    tool_choice: { type: 'none' },
+  })
+  const serial = anthropicToOpenAI({
+    model: 'm', max_tokens: 1, messages: [],
+    tools: [{ name: 'read', input_schema: { type: 'object', properties: {} } }],
+    tool_choice: { type: 'auto', disable_parallel_tool_use: true },
+  })
+  check('tool_choice none 禁止工具', none.tool_choice === 'none')
+  check('disable_parallel_tool_use 关闭并行', serial.parallel_tool_calls === false)
+}
+
+// 12) UTF-8 字符跨 Buffer 分块时保持完整
+{
+  const { openAISseToAnthropicJson } = await import('../../../../../src/proxy/anthropic/response.ts')
+  const response = openAISseToAnthropicJson(
+    'data: {"choices":[{"delta":{"content":"OK"}}]}\n\n'
+      + 'data: {"choices":[{"delta":{},"finish_reason":"stop"}]}\n\n',
+    'claude-haiku-5-5',
+  )
+  check('上游 SSE 聚合为完整响应', response?.content?.[0]?.text === 'OK')
+}
+
 if (failed) {
   console.error(`FAILED ${failed}`)
   process.exit(1)

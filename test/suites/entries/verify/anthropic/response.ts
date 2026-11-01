@@ -101,7 +101,9 @@ function parseEvents(blocks) {
   const state = createAnthropicSseState('m')
   const events = parseEvents(feedAll(state, [
     oc({ choices: [{ delta: { content: 'ok' } }] }),
-    oc({ choices: [{ delta: { tool_calls: [{ index: 0, id: 't1', function: { name: 'bash', arguments: '{}' } }] } }] }),
+    oc({ choices: [{ delta: { tool_calls: [{
+      index: 0, id: 't1', function: { name: 'bash', arguments: '{}' },
+    }] } }] }),
     'data: [DONE]',
   ]))
   const starts = events.filter((e) => e.type === 'content_block_start')
@@ -184,6 +186,22 @@ function parseEvents(blocks) {
     types[0] === 'message_start' && types.includes('content_block_stop') === false
       && types[types.length - 1] === 'message_stop',
   )
+}
+
+// 7) 工具名跨多个上游 chunk 时, Anthropic tool_use 名称须完整
+{
+  const state = createAnthropicSseState('m')
+  const events = parseEvents(feedAll(state, [
+    oc({ choices: [{ delta: { tool_calls: [{
+      index: 0, id: 'call_', function: { name: 'read_', arguments: '' },
+    }] } }] }),
+    oc({ choices: [{ delta: { tool_calls: [{ index: 0, id: '1', function: { name: 'file', arguments: '' } }] } }] }),
+    oc({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: '{}' } }] } }] }),
+    'data: [DONE]',
+  ]))
+  const toolStart = events.find((e) => e.type === 'content_block_start' && e.content_block?.type === 'tool_use')
+  check('分片工具 id 与名称在 start 前聚合完整',
+    toolStart?.content_block?.id === 'call_1' && toolStart.content_block.name === 'read_file')
 }
 
 if (failed) {

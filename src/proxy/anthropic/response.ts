@@ -5,18 +5,9 @@
  * 状态机(见 ./sse-state.ts), 字节分片边界不打碎事件.
  */
 
-import { createAnthropicSseState } from './sse-state.ts'
+import { createAnthropicSseState, newMsgId } from './sse-state.ts'
 
 export { createAnthropicSseState } from './sse-state.ts'
-
-/**
- * 生成一个消息 id.
- *
- * @returns {string} msg_ 前缀的随机 id
- */
-function newMsgId(): string {
-  return 'msg_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-}
 
 /**
  * 非流式: 把 OpenAI chat completion 对象转成 Anthropic message 对象.
@@ -48,6 +39,74 @@ export function openAIToAnthropicJson(obj: any, model: string): any {
       output_tokens: obj?.usage?.completion_tokens ?? 0,
     },
   }
+}
+
+/**
+ * 聚合上游 OpenAI SSE 响应并转换成 Anthropic message JSON.
+ *
+ * @param {string} text 完整的上游 SSE 文本
+ * @param {string} model 回显给下游的模型名
+ * @returns {any | null} Anthropic message; 未解析到数据块时返回 null
+ */
+export function openAISseToAnthropicJson(text: string, model: string): any | null {
+  let id = ''
+  let usage: any = null
+  let finishReason = ''
+  let content = ''
+  const toolCalls = new Map<number, any>()
+  let found = false
+
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.startsWith('data: ')) continue
+    const payload = line.slice(6).trim()
+    if (!payload || payload === '[DONE]') continue
+    let chunk: any
+    try {
+      chunk = JSON.parse(payload)
+    } catch {
+      continue
+    }
+    found = true
+    id = chunk.id || id
+    usage = chunk.usage || usage
+    const choice = chunk.choices?.[0]
+    if (!choice) continue
+    finishReason = choice.finish_reason || finishReason
+    const delta = choice.delta || {}
+    if (typeof delta.content === 'string') content += delta.content
+    for (const part of Array.isArray(delta.tool_calls) ? delta.tool_calls : []) {
+      appendToolCall(toolCalls, part)
+    }
+  }
+
+  if (!found) return null
+  return openAIToAnthropicJson({
+    id,
+    choices: [{
+      message: { role: 'assistant', content: content || null, tool_calls: [...toolCalls.values()] },
+      finish_reason: finishReason,
+    }],
+    usage,
+  }, model)
+}
+
+/**
+ * 累积一个 OpenAI SSE 工具调用分片.
+ *
+ * @param {Map<number, any>} calls 工具调用索引表
+ * @param {any} part 工具调用增量
+ * @returns {void} 无返回
+ */
+function appendToolCall(calls: Map<number, any>, part: any): void {
+  const index = Number(part?.index) || 0
+  let call = calls.get(index)
+  if (!call) {
+    call = { id: '', type: 'function', function: { name: '', arguments: '' } }
+    calls.set(index, call)
+  }
+  if (typeof part.id === 'string') call.id += part.id
+  if (typeof part.function?.name === 'string') call.function.name += part.function.name
+  if (typeof part.function?.arguments === 'string') call.function.arguments += part.function.arguments
 }
 
 /**

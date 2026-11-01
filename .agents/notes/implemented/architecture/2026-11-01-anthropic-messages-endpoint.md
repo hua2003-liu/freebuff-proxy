@@ -22,7 +22,11 @@ free_mode_cli_required), 免费额度的唯一出路是官方 CLI 形态, 本仓
   选号/重试/换号/限流/透传全部复用.
 - 回程侧: createAnthropicReply 包装 res, 拦截 writeHead/write/end, 把管线
   写出的 OpenAI SSE / 整体 JSON / OpenAI 错误信封实时转回 Anthropic 形态.
-  头部延迟到首字节, 便于修正 content-type/content-length.
+  上游官方通道即使下游要求非流式也会回 SSE, 因此非流式包装器先聚合 chunk
+  (含工具参数与 usage)再生成 Anthropic message JSON. 流式 tool_use 在首个参数片段
+  到达后再开块, 以便先聚合分片工具 id / 名称. UTF-8 解码保留跨 Buffer 分块
+  的字符边界. 鉴权失败使用 Anthropic authentication_error 信封. 头部延迟到首字节,
+  便于修正 content-type/content-length.
 - 模型名: claude-* 按档位映射(claude-*haiku* -> anthropic.smallModel,
   其余 -> anthropic.mainModel), 真源是 ctx.config(启动时深合并 DEFAULTS
   与已存可调项), 面板两个 string 可调项(anthropic.mainModel/smallModel)

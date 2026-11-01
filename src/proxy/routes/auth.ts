@@ -64,13 +64,22 @@ export function authorize(ctx: any, req: any, res: any) {
     const user = token ? ctx.userStore.getByApiKey(token) : null
     if (user) return true
   }
-  sendJson(res, 401, {
-    error: {
-      message: 'Invalid proxy API key',
-      type: 'auth_error',
-      code: 'invalid_api_key',
-    },
-  })
+  const route = String(req?.url || '').split('?')[0]
+  const anthropicRoute = route === '/v1/messages' || route.startsWith('/v1/messages/')
+  if (anthropicRoute) {
+    sendJson(res, 401, {
+      type: 'error',
+      error: { type: 'authentication_error', message: 'Invalid proxy API key' },
+    })
+  } else {
+    sendJson(res, 401, {
+      error: {
+        message: 'Invalid proxy API key',
+        type: 'auth_error',
+        code: 'invalid_api_key',
+      },
+    })
+  }
   return false
 }
 

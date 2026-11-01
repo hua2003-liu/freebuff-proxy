@@ -40,6 +40,7 @@ export function anthropicToOpenAI(body: any): any {
     out.stop = body.stop_sequences
   }
   if (body.tool_choice) out.tool_choice = mapToolChoice(body.tool_choice)
+  if (body.tool_choice?.disable_parallel_tool_use === true) out.parallel_tool_calls = false
   return out
 }
 
@@ -121,7 +122,7 @@ function convertAssistant(blocks: Block[]): any {
         function: { name: b.name, arguments: JSON.stringify(b.input ?? {}) },
       })
     }
-    // thinking 块: 上游不消费, 丢弃
+    // thinking 块不转换到 OpenAI 消息.
   }
   if (texts.length > 0) out.content = texts.join('')
   if (calls.length > 0) out.tool_calls = calls
@@ -230,6 +231,7 @@ function mapTool(tool: any): any {
  * @returns {any} OpenAI tool_choice
  */
 function mapToolChoice(choice: any): any {
+  if (choice?.type === 'none') return 'none'
   if (choice?.type === 'any') return 'required'
   if (choice?.type === 'tool' && choice?.name) {
     return { type: 'function', function: { name: choice.name } }
