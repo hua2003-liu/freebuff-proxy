@@ -12,6 +12,7 @@ import { authorize } from './auth.ts'
 import { handleAccountsDelete, handleAccountsImport } from './accounts.ts'
 import { handleModels, handleStatus } from './catalog.ts'
 import { handleGenericPassthrough } from '../transport/passthrough.ts'
+import { handleCountTokens, handleMessages } from '../anthropic/handler.ts'
 
 export async function handle(ctx: any, chatHandler: any, req: any, res: any) {
   const url = new URL(
@@ -28,35 +29,7 @@ export async function handle(ctx: any, chatHandler: any, req: any, res: any) {
 
   if (!authorize(ctx, req, res)) return
 
-  if (method === 'GET' && route === '/v1/models') {
-    await handleModels(ctx, res)
-    return
-  }
-
-  if (method === 'GET' && route === '/v1/freebuff/status') {
-    await handleStatus(ctx, res)
-    return
-  }
-
-  if (method === 'GET' && route === '/v1/freebuff/accounts') {
-    sendJson(res, 200, { object: 'list', data: ctx.runtimes.list() })
-    return
-  }
-
-  if (method === 'POST' && route === '/v1/freebuff/accounts/import') {
-    await handleAccountsImport(ctx, req, res)
-    return
-  }
-
-  if (method === 'DELETE' && route === '/v1/freebuff/accounts') {
-    await handleAccountsDelete(ctx, req, res)
-    return
-  }
-
-  if (method === 'POST' && route === '/v1/freebuff/session/end') {
-    await endAllSessions(ctx, res)
-    return
-  }
+  if (await handleAdminRoute(ctx, req, res, route, method)) return
 
   // Chat completions 只走 CLI 通道(agent 接口: admit 会话 +
   // startAgentRun + /api/v1/chat/completions).
@@ -64,6 +37,8 @@ export async function handle(ctx: any, chatHandler: any, req: any, res: any) {
     await chatHandler(req, res)
     return
   }
+
+  if (await handleChatRoute(ctx, chatHandler, req, res, route, method)) return
 
   // /v1/responses 明确不支持(见 rejectResponses 的文件级说明). 方法不限: 任何方法
   // 落进下面的 /v1/* 兜底都会被透传给上游, 而这条路径在上游根本不存在.
@@ -87,6 +62,77 @@ export async function handle(ctx: any, chatHandler: any, req: any, res: any) {
       code: 'not_found',
     },
   })
+}
+
+/**
+ * 管理面(/v1/models 与 /v1/freebuff/*)的分发.
+ *
+ * @param {any} ctx 依赖集合(含 runtimes)
+ * @param {any} req 下游请求
+ * @param {any} res 下游响应
+ * @param {string} route 路径
+ * @param {string} method 大写方法名
+ * @returns {Promise<boolean>} true = 已处理, 调用方直接收场
+ */
+async function handleAdminRoute(ctx: any, req: any, res: any, route: string, method: string): Promise<boolean> {
+  if (method === 'GET' && route === '/v1/models') {
+    await handleModels(ctx, res)
+    return true
+  }
+  if (method === 'GET' && route === '/v1/freebuff/status') {
+    await handleStatus(ctx, res)
+    return true
+  }
+  if (method === 'GET' && route === '/v1/freebuff/accounts') {
+    sendJson(res, 200, { object: 'list', data: ctx.runtimes.list() })
+    return true
+  }
+  if (method === 'POST' && route === '/v1/freebuff/accounts/import') {
+    await handleAccountsImport(ctx, req, res)
+    return true
+  }
+  if (method === 'DELETE' && route === '/v1/freebuff/accounts') {
+    await handleAccountsDelete(ctx, req, res)
+    return true
+  }
+  if (method === 'POST' && route === '/v1/freebuff/session/end') {
+    await endAllSessions(ctx, res)
+    return true
+  }
+  return false
+}
+
+/**
+ * 对话面(/v1/messages*)的分发.
+ *
+ * @param {any} ctx 依赖集合(config / runtimes / settingsStore)
+ * @param {any} chatHandler 既有 chat 入口
+ * @param {any} req 下游请求
+ * @param {any} res 下游响应
+ * @param {string} route 路径
+ * @param {string} method 大写方法名
+ * @returns {Promise<boolean>} true = 已处理, 调用方直接收场
+ */
+async function handleChatRoute(
+  ctx: any, chatHandler: any, req: any, res: any, route: string, method: string,
+): Promise<boolean> {
+  // Anthropic Messages 面: 请求侧转成 OpenAI 体进同一 chat 管线,
+  // 回程由包装 res 转回 Anthropic 形态(见 ../anthropic/handler.ts).
+  if (method === 'POST' && route === '/v1/messages') {
+    await handleMessages(ctx, req, res, chatHandler)
+    return true
+  }
+  if (method === 'POST' && route === '/v1/messages/count_tokens') {
+    await handleCountTokens(ctx, req, res)
+    return true
+  }
+  if (route === '/v1/messages' || route === '/v1/messages/count_tokens') {
+    sendJson(res, 405, {
+      error: { message: `Method ${method} not allowed for ${route}`, type: 'invalid_request_error' },
+    })
+    return true
+  }
+  return false
 }
 
 /**

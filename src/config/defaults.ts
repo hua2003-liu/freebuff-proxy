@@ -75,6 +75,12 @@ export const DEFAULTS: Record<string, any> = {
     // docs/design/freebucks-strategy.html
     idleReleaseSec: 60,
   },
+  anthropic: {
+    /** /v1/messages 档位映射: claude 主档(opus/sonnet)落到哪个模型. */
+    mainModel: 'z-ai/glm-5.3-flash',
+    /** /v1/messages 档位映射: claude 快档(haiku)落到哪个模型. */
+    smallModel: 'mimo/mimo-v2.5',
+  },
   limits: {
     maxConcurrentRequests: 32,
     // 全局请求闸门的排队上限(毫秒):排满时最多等这么久,超时返回 429

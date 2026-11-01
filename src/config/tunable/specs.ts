@@ -57,6 +57,8 @@ export interface TunableSpec {
 export const TUNABLES: readonly TunableSpec[] = Object.freeze([
   // ── 上游 ────────────────────────────────────────────────────────────
   { path: 'upstream.loginBase', type: 'string', group: 'upstream', label: '登录站点' },
+  { path: 'anthropic.mainModel', type: 'string', group: 'upstream', label: 'Anthropic 主档模型' },
+  { path: 'anthropic.smallModel', type: 'string', group: 'upstream', label: 'Anthropic 快档模型' },
 
   // ── 会话 ────────────────────────────────────────────────────────────
   { path: 'session.releaseOnShutdown', type: 'boolean', group: 'session', label: '退出时释放会话' },

@@ -56,7 +56,7 @@ function releaseSessionUnlessPaid(ctx: any, key: any, why: any) {
 export function authorize(ctx: any, req: any, res: any) {
   const keys = ctx.config.server.apiKeys || []
   if (keys.length === 0 && !ctx.userStore) return true
-  const token = readBearer(req)
+  const token = readBearer(req) || readApiKeyHeader(req)
   if (keys.length > 0 && token && apiKeyMatches(token, keys)) {
     return true
   }
@@ -72,4 +72,15 @@ export function authorize(ctx: any, req: any, res: any) {
     },
   })
   return false
+}
+
+/**
+ * 读 Anthropic 风格的 x-api-key 头.
+ *
+ * @param {any} req 下游请求
+ * @returns {string | null} key 值(无头时为 null)
+ */
+function readApiKeyHeader(req: any): string | null {
+  const v = req?.headers?.['x-api-key']
+  return typeof v === 'string' && v ? v : null
 }

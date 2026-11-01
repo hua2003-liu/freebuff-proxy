@@ -98,9 +98,30 @@ curl http://127.0.0.1:8787/v1/chat/completions \
 | 路径 | 作用 |
 |------|------|
 | `POST /v1/chat/completions` | 主路径(session + 透传) |
+| `POST /v1/messages` | Anthropic Messages 协议(Claude Code 直连) |
+| `POST /v1/messages/count_tokens` | Anthropic token 估算(本地粗估) |
 | `GET /v1/models` | 可用模型目录 |
 | `GET /v1/freebuff/status` . `GET /v1/freebuff/accounts` | 账号与 session 快照,冷却状态 |
 | `GET /healthz` | 存活探针 |
+
+### Claude Code 接入(Anthropic 协议)
+
+`/v1/messages` 与 `/v1/chat/completions` 走同一条上游管线(选号/重试/透传),
+请求侧转成 OpenAI 形态, 回程转回 Anthropic 事件流. Claude Code 侧设两个
+环境变量即可:
+
+```bash
+export ANTHROPIC_BASE_URL=http://127.0.0.1:8787
+export ANTHROPIC_AUTH_TOKEN=sk-fb-xxxxxxxx   # 即下游访问 Key
+# Windows PowerShell:
+# $env:ANTHROPIC_BASE_URL="http://127.0.0.1:8787"
+# $env:ANTHROPIC_AUTH_TOKEN="sk-fb-xxxxxxxx"
+```
+
+模型名映射(档位制): `claude-*` 名按档位落到控制台配置的模型 --
+`claude-*haiku*` 走[Anthropic 快档模型], 其余走[Anthropic 主档模型],
+两栏都在控制台[运行设置], 默认 `z-ai/glm-5.3-flash` / `mimo/mimo-v2.5`.
+直接发 freebuff 模型 id(如 `deepseek/deepseek-v4-flash`)则原样解析.
 
 ---
 

@@ -10,9 +10,10 @@
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 /** 测试目录(相对本文件). */
-const TEST_DIR = path.dirname(new URL(import.meta.url).pathname)
+const TEST_DIR = path.dirname(fileURLToPath(import.meta.url))
 
 /**
  * 套件清单, 按依赖顺序.
@@ -27,6 +28,9 @@ const SUITES = [
   ['catalog-models', 'suites/entries/verify/model/catalog-models.ts'],
   ['model-mapping-truth', 'suites/entries/verify/model/mapping-truth.ts'],
   ['tool-name-mapping', 'suites/entries/verify/tool/name-mapping.ts'],
+  ['anthropic-convert', 'suites/entries/verify/anthropic/convert.ts'],
+  ['anthropic-response', 'suites/entries/verify/anthropic/response.ts'],
+  ['anthropic-res-wrap', 'suites/entries/verify/anthropic/res-wrap.ts'],
   ['catalog-freshness', 'suites/entries/verify/catalog/freshness.ts'],
   ['tool-restore-declared', 'suites/entries/verify/tool/restore-declared.ts'],
   ['tool-param-idempotent', 'suites/entries/verify/tool/param/idempotent.ts'],

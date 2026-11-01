@@ -28,6 +28,7 @@ await import('./parts/api/core/tool-strip.ts') // api: tool-schema 拒后剥离�
 await import('./parts/api/core/fingerprint.ts') // api: 请求指纹稳定性
 await import('./parts/api/tools/tool-signature.ts') // api: 签名工具注入
 await import('./parts/api/models/models-list.ts') // api: /v1/models 与鉴权
+await import('./parts/api/anthropic/messages.ts') // api: /v1/messages 端到端
 await import('./parts/api/models/special-models.ts') // api: 特殊模型世代绑定
 await import('./parts/pool/tier/access-tier.ts') // pool: 档位与免费会话状态
 await import('./parts/scheduling/session/fresh-session.ts') // scheduling: 强制新建会话路径
