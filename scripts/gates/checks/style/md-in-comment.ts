@@ -95,9 +95,11 @@ for (const rel of list) {
     checked++
     const head = c.text.slice(0, 3)
     const tail = c.text.slice(-2)
+    // CRLF 检出(Windows core.autocrlf)下开头是 /*\r\n, 与 /*\n 同义.
+    const headOpen = head === '/*\n' || (head === '/*\r' && c.text[3] === '\n')
     // 判据 2:定界符完整
     if (c.text.startsWith('/*')) {
-      if (!(head === '/**' || head === '/*\n' || head === '/* ')) {
+      if (!(head === '/**' || headOpen || head === '/* ')) {
         report.add(rel, 0, `块注释开头异常: ${JSON.stringify(head)}`, 'JSDoc 必须是 /** 开头；修复器吃掉 ** 时就会变成 / 开头')
       }
       if (!c.text.endsWith('*/')) {

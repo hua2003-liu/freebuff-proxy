@@ -23,9 +23,10 @@
  - 用法:node scripts/check-config-consistency.ts
  */
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { UPSTREAM_API_BASE } from '../src/config.ts'
 
-const HERE = new URL('..', import.meta.url).pathname
+const HERE = fileURLToPath(new URL('..', import.meta.url))
 const problems = []
 
 // 1) 模板里不得再出现 api_base(含注释里被重新写回的可配形式)

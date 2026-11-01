@@ -69,11 +69,13 @@ import { fileURLToPath } from 'node:url'
   // 仓库根: 本入口在 test/suites/entries/smoke/, 所以要上跳 4 层.
   // (下界断言 scanned.length > 20 会抓住这种"扫描面塌缩" -- 上一版这里
   // 写成 '..' 时只扫到 6 个文件, 断言立刻红了, 没有静默全绿.)
-  const root = new URL('../../../../../../..', import.meta.url).pathname
-  const scanned = walk(root).filter((p) => !p.includes('/test/repro-'))
+  const root = fileURLToPath(new URL('../../../../../../..', import.meta.url))
+  // 路径分隔符归一为 '/', 豁免名单全是正斜杠字面量, Windows 下不归一会全部漏配.
+  const norm = (p) => p.split(path.sep).join('/')
+  const scanned = walk(root).filter((p) => !norm(p).includes('/test/repro-'))
   assert.ok(scanned.length > 20, `全仓扫描应覆盖足够多文件，实际 ${scanned.length}`)
   for (const abs of scanned) {
-    const rel = path.relative(root, abs)
+    const rel = norm(path.relative(root, abs))
     // 本文档(§3/§7)需要引用这些旧说法来解释纠错过程,豁免;
     // smoke 自身含正则字面量,也豁免(它就是这个守卫).
     if (rel === 'docs/design/account-scheduling-and-refund.md') continue

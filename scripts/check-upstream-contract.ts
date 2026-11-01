@@ -49,7 +49,7 @@ function walk(dir) {
   return out
 }
 
-const rel = (p) => p.replace(ROOT + '/', '')
+const rel = (p) => p.split('\\').join('/').replace(ROOT.split('\\').join('/') + '/', '')
 
 function main() {
   const errors = []

@@ -13,7 +13,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DASHBOARD = path.join(ROOT, 'dashboard')
@@ -97,7 +97,7 @@ for (const file of literalFiles) {
 }
 
 // ---------------------------------------------------------- 2/3. 词条一致性
-const mod = await import(I18N)
+const mod = await import(pathToFileURL(I18N).href)
 const dictKeys = mod.dictKeys()
 const locales = mod.LOCALES
 const baseLocale = mod.DEFAULT_LOCALE

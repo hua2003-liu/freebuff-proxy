@@ -16,6 +16,7 @@
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { ROOT } from '../../rules.ts'
 import { trackedFiles } from '../../lib/scan/files.ts'
@@ -71,7 +72,7 @@ if (tsFiles.length > 0) {
    *
    * 探针夹具与 CI 检出的前提见 .agents/notes/implemented/bug-fix/2026-10-05-ci-checkout-and-probe-fixtures.md.
    */
-  const ownRoot = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../../..')
+  const ownRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
   const tsc = [
     path.join(ROOT, 'node_modules/typescript/bin/tsc'),
     path.join(ownRoot, 'node_modules/typescript/bin/tsc'),

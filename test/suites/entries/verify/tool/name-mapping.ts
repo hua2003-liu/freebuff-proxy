@@ -186,7 +186,8 @@ for (const name of [
   const mapStart = src.indexOf('const MAP_TOOLS = Object.freeze({')
   const mapEnd = src.indexOf('})', mapStart) + 2
   const fnStart = src.indexOf('function mergeOfficialTools')
-  const fnEnd = src.indexOf('\n}\n', fnStart) + 3
+  const fnClose = src.slice(fnStart).match(/\r?\n\}\r?\n/)
+  const fnEnd = fnStart + fnClose.index + fnClose[0].length
   assert.ok(mapStart > 0 && mapEnd > mapStart, '必须能定位 MAP_TOOLS')
   assert.ok(fnStart > 0 && fnEnd > fnStart, '必须能定位 mergeOfficialTools')
 

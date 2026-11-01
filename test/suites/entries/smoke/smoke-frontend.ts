@@ -13,7 +13,9 @@
  *
  - 用法:node test/smoke-frontend.mjs
  */
-const HERE = new URL('../../../..', import.meta.url).pathname
+import { pathToFileURL, fileURLToPath } from 'node:url'
+
+const HERE = fileURLToPath(new URL('../../../..', import.meta.url))
 
 /** 万能桩:任何属性访问/调用都返回自身,能撑过 DOM 初始化代码. */
 const stub = new Proxy(() => stub, {
@@ -30,7 +32,7 @@ const targets = ['dashboard/locale/index.ts', 'dashboard/app.ts']
 
 for (const rel of targets) {
   try {
-    await import(`${HERE}${rel}`)
+    await import(pathToFileURL(`${HERE}${rel}`).href)
     console.log(` ${rel} 完整求值通过`)
   } catch (err) {
     console.error(` ${rel}: ${err?.constructor?.name}: ${err?.message}`)

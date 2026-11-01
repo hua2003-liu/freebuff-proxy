@@ -10,11 +10,12 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 // test/suites/entries/verify/ -> 仓库根: 往上 4 级(verify/model 才是 5 级).
 const ROOT = path.join(import.meta.dirname, '..', '..', '..', '..')
 const { renderWorkerSystem, applyPlaceholders, PLACEHOLDER_NAMES } = await import(
-  path.join(ROOT, 'cli-bridge/lib/system.ts')
+  pathToFileURL(path.join(ROOT, 'cli-bridge/lib/system.ts')).href
 )
 
 const tpl = JSON.parse(

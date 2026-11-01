@@ -29,6 +29,9 @@ import path from 'node:path'
   scConfig.upstream.credentialsDir = scDir
   scConfig.session.pollIntervalSec = 3600
   scConfig.limits.maxConcurrentRequests = 12
+  // 关闭请求节奏抖动: 重叠窗口只有 400ms, 200ms 随机抖动在定时器精度差的
+  // 平台上会把并发峰值压塌, 断言测的应是并发上限而非抖动.
+  scConfig.limits.requestJitterMs = 0
 
   const scRuntimes = new AccountRuntimes(scConfig, {
     getAccountConcurrency: () => 1,
@@ -150,6 +153,7 @@ import path from 'node:path'
   ccConfig.upstream.credentialsDir = ccDir
   ccConfig.session.pollIntervalSec = 3600
   ccConfig.limits.maxConcurrentRequests = 12
+  ccConfig.limits.requestJitterMs = 0
   // 模拟控制台把每账号并发上限调到 2
   const ccRuntimes = new AccountRuntimes(ccConfig, {
     getAccountConcurrency: () => 2,

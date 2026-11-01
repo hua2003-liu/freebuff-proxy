@@ -20,6 +20,7 @@ import assert from 'node:assert/strict'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { spawn } from 'node:child_process'
 
 const ROOT = path.join(import.meta.dirname, '..', '..', '..', '..')
@@ -141,7 +142,7 @@ if (!fs.existsSync(BUN)) {
 
   const probe = `
 const { buildBody, buildSystemMessages } = await import(${JSON.stringify(
-    path.join(ROOT, 'cli-bridge/lib/endpoints/chat-payload.ts'),
+    pathToFileURL(path.join(ROOT, 'cli-bridge/lib/endpoints/chat-payload.ts')).href,
   )})
 const body = buildBody({
   row: { handle: 'fbm1.AAEAAUPuTEST' },
