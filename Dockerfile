@@ -25,7 +25,7 @@ FROM node:22-slim
 ARG BUN_VERSION=1.4.2
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl unzip ca-certificates \
- && curl -fsSL -o /tmp/bun.zip \
+ && curl --http1.1 -fsSL -o /tmp/bun.zip \
       "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" \
  && unzip -q -o /tmp/bun.zip -d /tmp \
  && mkdir -p /opt/bun \

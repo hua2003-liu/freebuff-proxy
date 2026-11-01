@@ -176,6 +176,9 @@ import path from 'node:path'
 
   let streamActive = 0
   let streamActiveMax = 0
+  let concurrentPairReady = () => {}
+  let streamStarts = 0
+  const pairReady = new Promise<void>((resolve) => { concurrentPairReady = resolve })
   const origFetch = globalThis.fetch
   globalThis.fetch = async (url, init = {}) => {
     const u = String(url)
@@ -185,11 +188,17 @@ import path from 'node:path'
       if (body.stream) {
         let closed = false
         streamActive++
+        streamStarts++
         if (streamActive > streamActiveMax) streamActiveMax = streamActive
+        if (streamStarts >= 2) concurrentPairReady()
         const stream = new ReadableStream({
-          start(controller) {
+          async start(controller) {
             const enc = new TextEncoder()
             const chunks = ['h', 'i', '!', '\n']
+            await Promise.race([
+              pairReady,
+              new Promise<void>((resolve) => setTimeout(resolve, 1000)),
+            ])
             async function emit(i) {
               if (i >= chunks.length || closed) {
                 streamActive = Math.max(0, streamActive - 1)
@@ -197,10 +206,10 @@ import path from 'node:path'
                 return
               }
               controller.enqueue(enc.encode(`data: {"x":"${chunks[i]}"}\n\n`))
-              await new Promise((r) => setTimeout(r, 100))
-              emit(i + 1)
+              await new Promise((r) => setTimeout(r, 50))
+              await emit(i + 1)
             }
-            emit(0)
+            await emit(0)
           },
           cancel() {
             closed = true
